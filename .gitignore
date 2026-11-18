@@ -1,0 +1,7 @@
+state.json
+acp-session-bindings.json
+bridge.log
+*.bak-*
+voice/
+.grokbot-voice/
+node_modules/
