@@ -543,7 +543,7 @@ class VoiceCall {
     this.cwd = session.cwd ?? null;
     this.audioDir = this.cwd ? path.join(this.cwd, '.grokbot-voice') : VOICE_DIR;
     this.agentId = session.agentId;
-    this.agentName = agents.find(a => a.agentId === session.agentId)?.name ?? 'leo';
+    this.agentName = agents.find(a => a.agentId === session.agentId)?.name ?? 'bot';
     this.voiceId = agents.find(a => a.agentId === session.agentId)?.voiceId || null;
     this.harness = harness;
     this.ws = null;
@@ -881,9 +881,9 @@ class VoiceCall {
 async function startVoice(id, params, session) {
   const agents = await listAgents();
   const agent = agents.find(a => a.agentId === session.agentId);
-  chunk(params.sessionId, `📞 正在接通 ${agent?.name ?? 'leo'} 的语音通话…（输入文字即语音对话；发送「挂断」结束）`);
+  chunk(params.sessionId, `📞 正在接通 ${agent?.name ?? 'bot'} 的语音通话…（输入文字即语音对话；发送「挂断」结束）`);
   const harness = await backend.rpc('VoiceCallHarnessSession', {
-    agentId: session.agentId, agentName: agent?.name ?? 'leo', spokenLanguage: 'zh',
+    agentId: session.agentId, agentName: agent?.name ?? 'bot', spokenLanguage: 'zh',
   });
   const call = new VoiceCall(session, params.sessionId, harness, agents);
   await call.open();

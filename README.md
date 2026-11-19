@@ -1,7 +1,7 @@
 # grokbot-t3-bridge
 
-把 Grok Bot 桌面端账号里的 agent（如 leo）作为 ACP provider 接入 T3。
-私有 Cursor/GrokBot Connect-JSON API 桥，无官方兼容承诺；冒烟消耗 leo 的每周配额。
+把 Grok Bot 桌面端账号里的 agent 作为 ACP provider 接入 T3。
+私有 Cursor/GrokBot Connect-JSON API 桥，无官方兼容承诺；冒烟消耗该 agent 的每周配额。
 
 ## 安装（T3 local-source 规范）
 
@@ -30,11 +30,11 @@ T3 `acpRegistry` driver 的 `source:"local"` 直接 spawn `commandPath`（`shell
 
 ## 需要开着桌面端吗？——不需要（已实弹验证）
 
-leo 是云端 agent：桥直连 `api2.cursor.sh`（SendGrokBotUserMessage → 云端编排 → ListGrokBotTranscriptEntries 轮询），整条链路不经过桌面端进程。实测把桌面端全部进程退出后，冒烟仍正常收到回复（`OK`，end_turn）。桌面端与 T3 桥是平级客户端，可同时在线共享同一份云端 transcript。
+bot 是云端 agent：桥直连 `api2.cursor.sh`（SendGrokBotUserMessage → 云端编排 → ListGrokBotTranscriptEntries 轮询），整条链路不经过桌面端进程。实测把桌面端全部进程退出后，冒烟仍正常收到回复（`OK`，end_turn）。桌面端与 T3 桥是平级客户端，可同时在线共享同一份云端 transcript。
 
 桌面端仅在以下场景需要打开：
 - **首次登录 / 重新登录**：token 首次从桌面端 keyring 解密；日常靠 refresh token 自动续期，但 refresh token 失效后需开桌面端重新登录一次。
-- **本地工具执行**：leo 操作你本机文件/命令的 local tool 以桌面端为执行体；桌面端关闭时这类操作会挂起或失败。纯问答、天气、云端搜索、send_task 等云端能力不受影响。
+- **本地工具执行**：bot 操作你本机文件/命令的 local tool 以桌面端为执行体；桌面端关闭时这类操作会挂起或失败。纯问答、天气、云端搜索、send_task 等云端能力不受影响。
 
 未验证：桌面端长期离线（数天）后 refresh token 是否持续有效。
 
@@ -57,7 +57,8 @@ leo 是云端 agent：桥直连 `api2.cursor.sh`（SendGrokBotUserMessage → �
 
 - 日志：`bridge.log`（T3 丢弃 provider stderr，此为唯一证据源）。
 - 改脚本后需杀桥进程让 T3 重新拉起：`pkill -f 'grokbot-acp[.]mjs'`；进程死后首次发送会失败，等 ~12s 重试。
-- 冒烟：`node test/smoke.mjs '只回复两个字符：OK'`；原生卡片：`node test/native-ui-test.mjs widget 庚`。
+- 冒烟：`node test/smoke.mjs '只回复两个字符：OK'`；原生卡片：`node test/native-ui-test.mjs widget allow-once`。
+- 测试脚本默认 agent 名为 `leo`，可用环境变量覆盖：`GROKBOT_AGENT=<你的bot名> node test/smoke.mjs`。
 
 ## 免责
 

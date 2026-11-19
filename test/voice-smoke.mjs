@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const child = spawn(process.env.HOME + '/.grokbot-bridge/grokbot-acp', [], {
   cwd: import.meta.dirname,
   stdio: ['pipe', 'pipe', 'pipe'],
-  env: { ...process.env, GROKBOT_AGENT: 'leo', GROKBOT_VOICE_IDLE_MS: '12000' },
+  env: { ...process.env, GROKBOT_AGENT: process.env.GROKBOT_AGENT ?? 'leo', GROKBOT_VOICE_IDLE_MS: '12000' },
 });
 const send = (o) => child.stdin.write(JSON.stringify(o) + '\n');
 const rl = readline.createInterface({ input: child.stdout });

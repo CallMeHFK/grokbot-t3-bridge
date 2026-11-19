@@ -5,7 +5,7 @@ const PROMPT = process.argv[2] ?? '只回复两个字符：OK';
 const child = spawn(process.env.HOME + '/.grokbot-bridge/grokbot-acp', [], {
   cwd: import.meta.dirname,
   stdio: ['pipe', 'pipe', 'pipe'],
-  env: { ...process.env, GROKBOT_AGENT: 'leo' },
+  env: { ...process.env, GROKBOT_AGENT: process.env.GROKBOT_AGENT ?? 'leo' },
 });
 const send = (o) => child.stdin.write(JSON.stringify(o) + '\n');
 const rl = readline.createInterface({ input: child.stdout });

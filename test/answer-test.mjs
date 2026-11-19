@@ -3,7 +3,7 @@ import readline from 'node:readline';
 
 const child = spawn(process.env.HOME + '/.grokbot-bridge/grokbot-acp', [], {
   cwd: import.meta.dirname, stdio: ['pipe', 'pipe', 'pipe'],
-  env: { ...process.env, GROKBOT_AGENT: 'leo' },
+  env: { ...process.env, GROKBOT_AGENT: process.env.GROKBOT_AGENT ?? 'leo' },
 });
 const send = (o) => child.stdin.write(JSON.stringify(o) + '\n');
 const rl = readline.createInterface({ input: child.stdout });
@@ -27,11 +27,11 @@ rl.on('line', (line) => {
   } else if (m.id === 2) {
     sessionId = m.result.sessionId;
     phase = 1; text = '';
-    send({ jsonrpc: '2.0', id: 3, method: 'session/prompt', params: { sessionId, prompt: [{ type: 'text', text: '请用 send_message 发一张选项卡片：问题“代答链路测试”，选项“戊”“己”。发完卡片就停下等我回答。' }] } });
+    send({ jsonrpc: '2.0', id: 3, method: 'session/prompt', params: { sessionId, prompt: [{ type: 'text', text: '请用 send_message 发一张选项卡片：问题“代答链路测试”，选项“A”“B”。发完卡片就停下等我回答。' }] } });
   } else if (m.id === 3) {
     console.log('TURN1 RESULT:', JSON.stringify(m.result ?? m.error));
     phase = 2; text = '';
-    send({ jsonrpc: '2.0', id: 4, method: 'session/prompt', params: { sessionId, prompt: [{ type: 'text', text: '戊' }] } });
+    send({ jsonrpc: '2.0', id: 4, method: 'session/prompt', params: { sessionId, prompt: [{ type: 'text', text: 'A' }] } });
   } else if (m.id === 4) {
     console.log('TURN2 RESULT:', JSON.stringify(m.result ?? m.error));
     console.log('TURN2 TEXT:\n' + text);
