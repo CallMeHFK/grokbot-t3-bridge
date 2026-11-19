@@ -54,6 +54,15 @@ Read-only probe evidence: `ListGrokBotAgents` returns `harness:"temporal"` (clou
 - Not verified: whether pure web/search subtasks inside send_task have a cloud runner fallback while the desktop app is offline.
 - Practical rule: as a "cloud Q&A + search assistant" the desktop app can stay closed; to touch local files/commands/browser, open it first (minimized is fine).
 
+## Billing (verified via read-only probes)
+
+Conversations consume the **Grok Bot weekly allowance (a separate pool)** — not your Cursor editor / Teams plan usage:
+
+- `DashboardService/GetSandUsageStatus` returns `grokPlanLabel:"Grok Bot Plan"` with its own weekly period and `usagePercent` (measured: dozens of smoke turns + voice + weather tasks over several days ≈ 3.7%).
+- The desktop's rate-limit taxonomy has three buckets: `sand_included` (Grok Bot weekly allowance; hitting it reports `sand_included_limit` with a weekly reset time) / `on_demand` (Grok Bot pay-as-you-go, must be explicitly enabled at cursor.com/dashboard — the bridge never enables it) / `cursor` (Cursor usage).
+- Note: this endpoint lives on `DashboardService`, not `GrokBotService`, and requires the full sand headers (`x-cursor-client-type:sand`, `x-cursor-checksum`, etc.).
+- Two traps when reading `GetCurrentPeriodUsage` (the Cursor pool): `bonusSpend` is model-provider-granted free usage, not real spend (use `autoPercentUsed`/`apiPercentUsed` for actual plan progress); `displayMessage:"You've hit your usage limit"` is a pre-baked template shown only when capped, not the current state.
+
 ## Protocol notes (verified against T3 0.1.10)
 
 - initialize: T3 sends `protocolVersion:2`; a response without an `info` field falls back to v1. The bridge answers v1 + `agentInfo` (a legal optional field in the v1 schema).

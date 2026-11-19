@@ -54,6 +54,15 @@ bot 是云端 agent：桥直连 `api2.cursor.sh`（SendGrokBotUserMessage → �
 - 未验证：send_task 内纯 web/搜索类子任务在桌面端离线时是否有云端 runner 兜底。
 - 实用口径：当"云端问答+搜索助手"用时桌面端可常关；要动本机文件/命令/浏览器就先开桌面端（可最小化）。
 
+## 计费口径（只读探针实证）
+
+对话消耗的是 **Grok Bot 自己的周额度（独立池）**，不扣 Cursor 编辑器/Teams 计划内用量：
+
+- `DashboardService/GetSandUsageStatus` 返回 `grokPlanLabel:"Grok Bot Plan"`、独立周周期与 `usagePercent`（实测几天几十轮冒烟+语音+天气仅 ~3.7%）。
+- 桌面端限流分类三档：`sand_included`（Grok Bot 周额度，触顶报 `sand_included_limit` 并带周重置时间）/ `on_demand`（Grok Bot 按量付费，需在 cursor.com/dashboard 显式开启，桥不会替你开）/ `cursor`（Cursor 额度）。
+- 注意：该端点在 `DashboardService` 而非 `GrokBotService`，且需要完整 sand 请求头（`x-cursor-client-type:sand`、`x-cursor-checksum` 等）。
+- 读 `GetCurrentPeriodUsage`（Cursor 池）时两个坑：`bonusSpend` 是模型厂商赠送用量不是真实花费（看 `autoPercentUsed`/`apiPercentUsed` 才是计划内进度）；`displayMessage:"You've hit your usage limit"` 是预置触顶文案模板，不代表当前状态。
+
 ## 协议要点（对齐 T3 0.1.10 实测）
 
 - initialize：T3 发 `protocolVersion:2`；响应无 `info` 字段即回落 v1。桥返回 v1 + `agentInfo`（v1 schema 合法可选字段）。
