@@ -25,8 +25,18 @@ T3 `acpRegistry` driver 的 `source:"local"` 直接 spawn `commandPath`（`shell
 
 前提：
 - Linux + Node ≥ 22（用到全局 WebSocket / fetch）。
-- Grok Bot 桌面端已登录（凭据经 GNOME keyring 解密 + OAuth 刷新，缓存在 `state.json`，0600）。
+- Grok Bot 桌面端**登录过一次**即可（凭据经 GNOME keyring 解密 + OAuth 刷新，缓存在 `state.json`，0600）。
 - keyring 解密依赖 `python3` 及 `secretstorage`、`cryptography` 包；`GROKBOT_AGENT` 不设置则用账号下第一个 agent。
+
+## 需要开着桌面端吗？——不需要（已实弹验证）
+
+leo 是云端 agent：桥直连 `api2.cursor.sh`（SendGrokBotUserMessage → 云端编排 → ListGrokBotTranscriptEntries 轮询），整条链路不经过桌面端进程。实测把桌面端全部进程退出后，冒烟仍正常收到回复（`OK`，end_turn）。桌面端与 T3 桥是平级客户端，可同时在线共享同一份云端 transcript。
+
+桌面端仅在以下场景需要打开：
+- **首次登录 / 重新登录**：token 首次从桌面端 keyring 解密；日常靠 refresh token 自动续期，但 refresh token 失效后需开桌面端重新登录一次。
+- **本地工具执行**：leo 操作你本机文件/命令的 local tool 以桌面端为执行体；桌面端关闭时这类操作会挂起或失败。纯问答、天气、云端搜索、send_task 等云端能力不受影响。
+
+未验证：桌面端长期离线（数天）后 refresh token 是否持续有效。
 
 ## 协议要点（对齐 T3 0.1.10 实测）
 
