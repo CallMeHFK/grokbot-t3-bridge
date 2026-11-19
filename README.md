@@ -40,6 +40,20 @@ The desktop app is only needed for:
 
 Not verified: whether the refresh token stays valid after the desktop app has been offline for days.
 
+## Who executes the work? — executor layering
+
+Read-only probe evidence: `ListGrokBotAgents` returns `harness:"temporal"` (cloud Temporal workflow orchestration); the agent's tool surface is only `send_task` / `search_conversations` / `end_the_call`, and `send_task`'s official description explicitly says jobs that need "their computer, files, web, browser, or mail" are handed off. Three layers follow:
+
+| Task type | Executor | Desktop app must be online? |
+| --- | --- | --- |
+| Pure chat / reasoning | Cloud model | No (live-verified) |
+| Cloud capabilities (weather, web search, conversation search) | Cloud services | No |
+| Local/account resources (send_task jobs, local tools touching shell/files/browser) | GrokBot background agent runtime; local tools run inside the desktop process | **Yes** — with it closed they hang or fail |
+
+- The T3 bridge is never an executor: it is only a message channel, runs no tools on your machine on the bot's behalf, and opens no local execution channel for the cloud (a security boundary).
+- Not verified: whether pure web/search subtasks inside send_task have a cloud runner fallback while the desktop app is offline.
+- Practical rule: as a "cloud Q&A + search assistant" the desktop app can stay closed; to touch local files/commands/browser, open it first (minimized is fine).
+
 ## Protocol notes (verified against T3 0.1.10)
 
 - initialize: T3 sends `protocolVersion:2`; a response without an `info` field falls back to v1. The bridge answers v1 + `agentInfo` (a legal optional field in the v1 schema).

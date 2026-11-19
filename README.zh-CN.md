@@ -40,6 +40,20 @@ bot 是云端 agent：桥直连 `api2.cursor.sh`（SendGrokBotUserMessage → �
 
 未验证：桌面端长期离线（数天）后 refresh token 是否持续有效。
 
+## 那需要执行的时候，谁来执行？——执行体分层
+
+只读探针取证：`ListGrokBotAgents` 返回 `harness:"temporal"`（云端 Temporal 工作流编排）；agent 工具面仅 `send_task` / `search_conversations` / `end_the_call`，其中 `send_task` 的官方描述明确"需要你的电脑、文件、浏览器、邮箱的任务一律转交"。据此分三层：
+
+| 任务类型 | 执行体 | 桌面端需要在线？ |
+| --- | --- | --- |
+| 纯对话 / 推理 | 云端模型 | 否（已实弹验证） |
+| 云端能力（天气、web 搜索、查对话记录） | 云端服务 | 否 |
+| 本机/账号资源（send_task 重活、local tool 本机 shell/文件/浏览器） | GrokBot 后台 agent 运行时；触碰本机的 local tool 以桌面端进程为执行体 | **是**——关着会挂起或失败 |
+
+- T3 桥永远不是执行体：它只是消息通道，不会在你本机替 bot 跑任何工具，也不给云端开本机执行通道（安全边界）。
+- 未验证：send_task 内纯 web/搜索类子任务在桌面端离线时是否有云端 runner 兜底。
+- 实用口径：当"云端问答+搜索助手"用时桌面端可常关；要动本机文件/命令/浏览器就先开桌面端（可最小化）。
+
 ## 协议要点（对齐 T3 0.1.10 实测）
 
 - initialize：T3 发 `protocolVersion:2`；响应无 `info` 字段即回落 v1。桥返回 v1 + `agentInfo`（v1 schema 合法可选字段）。
