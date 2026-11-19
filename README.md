@@ -2,14 +2,40 @@
 
 English | [中文](README.zh-CN.md)
 
-Use an agent from your Grok Bot desktop account as an ACP provider in T3.
-This is a bridge to the private Cursor/GrokBot Connect-JSON API — no official compatibility promise; smoke tests consume the agent's weekly quota.
+**Chat with your Grok Bot agents inside [T3](https://t3.codes) — no desktop app required.**
 
-## Install (T3 local-source contract)
+A single-file, zero-dependency [ACP](https://agentclientprotocol.com) provider that bridges T3 to the Grok Bot cloud (`aiserver.v1.GrokBotService` on `api2.cursor.sh`). Your bot's replies stream into T3 threads like any other model, its interactive requests render as native T3 cards, and every turn is billed to the **Grok Bot weekly pool — never your Cursor plan**.
 
-T3's `acpRegistry` driver with `source:"local"` spawns `commandPath` directly (`shell:false`, no install step; on Windows .cmd/.bat are rejected — a real executable is required).
+> ⚠️ Built on the private, reverse-engineered Connect-JSON API of the Grok Bot desktop app. Personal interoperability only; the API may change at any time. No credentials are bundled — the bridge reuses the login already on your machine.
 
-Register under `providerInstances` in `~/.t3/userdata/settings.json` (adjust `commandPath` to your install path):
+## Features
+
+- **Headless chat** — the desktop app can stay closed (live-verified: all desktop processes killed, replies still arrive). Desktop and bridge are peer clients sharing one cloud transcript.
+- **Bot picker** — every agent in your account appears in T3's model dropdown; switch bots per thread.
+- **Session resume** — existing T3 threads reconnect after process restarts (`session/resume` + persistent session→agent bindings).
+- **Native interactive cards** — bot permission asks, auto-review approvals, forms and widgets map to T3's `session/request_permission` / `elicitation/create`, with automatic text fallback on clients without those capabilities.
+- **Billing isolation** — conversations consume only the Grok Bot weekly allowance (`sand_included`); the bridge never enables pay-as-you-go and never touches Cursor billing.
+- **Voice calls (experimental, dormant)** — text-in / spoken-out realtime calls with task handoff (`send_task`) and spoken result feedback. Off by default behind `GROKBOT_VOICE=1`, waiting for T3 realtime-audio support.
+- **Security boundary** — the bridge is a message channel only. It never executes tools on your machine on the bot's behalf.
+
+## Quick start
+
+Requirements:
+
+| | |
+| --- | --- |
+| OS | Linux (GNOME keyring credential path) |
+| Runtime | Node ≥ 22 (global `fetch` / `WebSocket`) |
+| Login | Grok Bot desktop app logged in **once** |
+| Keyring deps | `python3` + `secretstorage` + `cryptography` |
+
+```sh
+git clone https://github.com/CallMeHFK/grokbot-t3-bridge.git ~/.grokbot-bridge
+cd ~/.grokbot-bridge
+node test/smoke.mjs 'Reply with exactly two characters: OK'   # expect: TEXT: OK
+```
+
+The smoke test decrypts credentials from the keyring, refreshes the OAuth token and caches them in `state.json` (mode 0600, git-ignored). Then register the provider in `~/.t3/userdata/settings.json` under `providerInstances`:
 
 ```json
 "acpRegistry_grokbot": {
@@ -25,74 +51,84 @@ Register under `providerInstances` in `~/.t3/userdata/settings.json` (adjust `co
 }
 ```
 
-Prerequisites:
-- Linux + Node ≥ 22 (uses global WebSocket / fetch).
-- Grok Bot desktop app **logged in once** (credentials are decrypted from the GNOME keyring + refreshed via OAuth, cached in `state.json`, mode 0600).
-- Keyring decryption needs `python3` with the `secretstorage` and `cryptography` packages; without `GROKBOT_AGENT` the first agent of the account is used.
+T3's `acpRegistry` driver with `source:"local"` spawns `commandPath` directly (`shell:false`, no install step; Windows `.cmd`/`.bat` wrappers are rejected — a real executable is required). Restart T3, pick **GrokBot** as the provider, choose your bot in the model dropdown, and chat.
 
-## Does the desktop app need to stay open? — No (live-verified)
+Without `GROKBOT_AGENT`, the account's first agent is used.
 
-The bot is a cloud agent: the bridge talks directly to `api2.cursor.sh` (SendGrokBotUserMessage → cloud orchestration → ListGrokBotTranscriptEntries polling); no hop goes through the desktop process. Verified live: with every desktop process killed, the smoke test still received a reply (`OK`, end_turn). The desktop app and the T3 bridge are peer clients and can be online simultaneously, sharing the same cloud transcript.
+## How it works
 
-The desktop app is only needed for:
-- **First login / re-login**: tokens are initially decrypted from the desktop keyring; day-to-day the refresh token auto-renews, but once it is invalidated you must open the desktop app and log in again.
-- **Local tool execution**: local tools that touch files/commands on your machine run inside the desktop app; with it closed such operations hang or fail. Pure chat, weather, cloud search, send_task and other cloud capabilities are unaffected.
+```
+T3 thread ── ACP (stdio JSON-RPC) ── grokbot-acp ── Connect-JSON/HTTPS ── api2.cursor.sh
+                                        │                                  │
+                                  bridge.log                        cloud Temporal workflows
+                                                                           │
+                                                              Grok Bot agent (cloud model)
+```
 
-Not verified: whether the refresh token stays valid after the desktop app has been offline for days.
+Per turn: `SendGrokBotUserMessage` → poll `ListGrokBotTranscriptEntries` → stream `agent_message_chunk` updates. Interactive entries (asks / approvals / forms / widgets) are resolved back via `ResolveGrokBotLocalToolPermission`, `ResolveGrokBotAutoReviewApproval`, `SubmitGrokBotUserForm`, `RespondGrokBotWidget` after you answer the T3 card.
 
-## Who executes the work? — executor layering
+### Who executes the work?
 
-Read-only probe evidence: `ListGrokBotAgents` returns `harness:"temporal"` (cloud Temporal workflow orchestration); the agent's tool surface is only `send_task` / `search_conversations` / `end_the_call`, and `send_task`'s official description explicitly says jobs that need "their computer, files, web, browser, or mail" are handed off. Three layers follow:
+The bot runs in the cloud (`harness:"temporal"`); the bridge is never an executor. Evidence: `ListGrokBotAgents` + the official `send_task` tool description ("jobs needing their computer, files, web, browser, or mail are handed off").
 
 | Task type | Executor | Desktop app must be online? |
 | --- | --- | --- |
 | Pure chat / reasoning | Cloud model | No (live-verified) |
 | Cloud capabilities (weather, web search, conversation search) | Cloud services | No |
-| Local/account resources (send_task jobs, local tools touching shell/files/browser) | GrokBot background agent runtime; local tools run inside the desktop process | **Yes** — with it closed they hang or fail |
+| Local tools (shell / files / browser), heavy `send_task` jobs | GrokBot runtime; local tools run inside the desktop process | **Yes** — with it closed they hang or fail |
 
-- The T3 bridge is never an executor: it is only a message channel, runs no tools on your machine on the bot's behalf, and opens no local execution channel for the cloud (a security boundary).
-- Not verified: whether pure web/search subtasks inside send_task have a cloud runner fallback while the desktop app is offline.
-- Practical rule: as a "cloud Q&A + search assistant" the desktop app can stay closed; to touch local files/commands/browser, open it first (minimized is fine).
+The desktop app is also needed for **first login / re-login** (refresh tokens auto-renew day-to-day; once invalidated, log in again via the app). Not verified: refresh-token validity after days offline, and whether pure-web `send_task` subtasks have a cloud fallback while the desktop is closed.
 
-## Billing (verified via read-only probes)
+## Billing
 
-Conversations consume the **Grok Bot weekly allowance (a separate pool)** — not your Cursor editor / Teams plan usage:
+Verified via read-only probes — two separate pools:
 
-- `DashboardService/GetSandUsageStatus` returns `grokPlanLabel:"Grok Bot Plan"` with its own weekly period and `usagePercent` (measured: dozens of smoke turns + voice + weather tasks over several days ≈ 3.7%).
-- The desktop's rate-limit taxonomy has three buckets: `sand_included` (Grok Bot weekly allowance; hitting it reports `sand_included_limit` with a weekly reset time) / `on_demand` (Grok Bot pay-as-you-go, must be explicitly enabled at cursor.com/dashboard — the bridge never enables it) / `cursor` (Cursor usage).
-- Note: this endpoint lives on `DashboardService`, not `GrokBotService`, and requires the full sand headers (`x-cursor-client-type:sand`, `x-cursor-checksum`, etc.).
-- Two traps when reading `GetCurrentPeriodUsage` (the Cursor pool): `bonusSpend` is model-provider-granted free usage, not real spend (use `autoPercentUsed`/`apiPercentUsed` for actual plan progress); `displayMessage:"You've hit your usage limit"` is a pre-baked template shown only when capped, not the current state.
+- **Grok Bot weekly pool** (`sand_included`): what this bridge consumes. `DashboardService/GetSandUsageStatus` → `grokPlanLabel:"Grok Bot Plan"`, own weekly period; dozens of smoke turns + voice + weather tasks over several days measured ≈ 3.7%. Hitting the cap reports `sand_included_limit` with a weekly reset time.
+- **Cursor plan pool**: untouched. `on_demand` (Grok Bot pay-as-you-go) must be explicitly enabled at cursor.com/dashboard — the bridge never enables it.
+- Reading `GetCurrentPeriodUsage` (Cursor pool): `bonusSpend` is provider-granted free usage, not real spend (use `autoPercentUsed`/`apiPercentUsed`); `displayMessage:"You've hit your usage limit"` is a pre-baked template, not live state.
 
-## Protocol notes (verified against T3 0.1.10)
+## Configuration
 
-- initialize: T3 sends `protocolVersion:2`; a response without an `info` field falls back to v1. The bridge answers v1 + `agentInfo` (a legal optional field in the v1 schema).
-- Session restore: T3 **always takes the resume path** for existing threads. The bridge advertises `agentCapabilities.sessionCapabilities.resume:{}` and implements `session/resume`; `session/load` returns -32601. Without the resume capability T3 fails with "Failed to open provider session" before ever sending session/new.
-- Session binding: `acp-session-bindings.json` persists sessionId→agentId across process restarts; legacy threads without a binding fall back to `GROKBOT_AGENT`.
-- Model picker: a configOption is only recognized by T3's `findModelConfigOption` when `category:"model" && type:"select"` (the Bot dropdown lists your agents).
-- Cancel: `session/cancel` is a notification; T3 waits ≤15s then kills the process. SIGTERM/SIGINT close the voice WS and exit 0.
-- Interactive cards: `elicitation/create` / `session/request_permission` are only sent when the client advertises elicitation/permission capabilities; otherwise the bridge falls back to text prompts.
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `GROKBOT_AGENT` | first agent | Bot name or agentId for new sessions |
+| `GROKBOT_VOICE` | off | `1` enables experimental voice calls (`/voice`, `/hangup`) |
+| `GROKBOT_WIDGET_CARD` | off | `1` answers widget questions via a native card instead of the text flow |
+| `GROKBOT_DEBUG` | off | Verbose polling logs |
+| `GROKBOT_VOICE_IDLE_MS` | 15000 | Voice-call idle timeout (advanced) |
+| `GROKBOT_VOICE_FEED_WIRE` | `async-update` | Voice result-feed wire mode (advanced) |
 
-## Feature flags
+## Tests
 
-- `GROKBOT_VOICE=1`: enable the experimental voice call (text in, voice out; T3 has no realtime audio input yet, off by default). Commands `/voice`, `/hangup`.
-- `GROKBOT_WIDGET_CARD=1`: answer widget questions via a native approval card (default is the text answer flow).
-- `GROKBOT_DEBUG=1`: polling debug logs.
+All tests spawn the real bridge against the live API and consume weekly quota. Default agent is `leo`; override with `GROKBOT_AGENT`.
 
-## Operations
+| Script | What it verifies |
+| --- | --- |
+| `test/smoke.mjs '<prompt>'` | One chat turn end-to-end |
+| `test/answer-test.mjs` | Text-answer flow for bot questions |
+| `test/native-ui-test.mjs <mode> <decision>` | Native card loop (`widget` verified live; `form`/`local-tool`/`auto-review` implemented but not live-triggered — the bot declined to fabricate those situations) |
+| `test/render-test.mjs` | Transcript rendering |
+| `test/voice-smoke.mjs` | Voice call phases (needs `GROKBOT_VOICE=1`) |
 
-- Logs: `bridge.log` (T3 discards provider stderr, so this is the only evidence source).
-- After editing the script, kill the bridge process so T3 respawns it: `pkill -f 'grokbot-acp[.]mjs'`; the first send after process death fails — wait ~12s and retry.
-- Smoke: `node test/smoke.mjs 'Reply with exactly two characters: OK'`; native card: `node test/native-ui-test.mjs widget allow-once`.
-- Test scripts default to agent name `leo`; override via env: `GROKBOT_AGENT=<your-bot-name> node test/smoke.mjs`.
+## Troubleshooting
 
-## Disclaimer
+- **Logs**: `bridge.log` — T3 discards provider stderr, so this is the only evidence source.
+- **Edited the script?** Kill the bridge so T3 respawns it: `pkill -f 'grokbot-acp[.]mjs'`. The first send after process death fails; wait ~12 s and retry.
+- **`fetch failed` / `ECONNRESET`**: connectivity to `api2.cursor.sh` can be flaky; retry with backoff. Node's `fetch` ignores `HTTPS_PROXY` — if you need a proxy, the process must route at the system level.
+- **"Failed to open provider session" on old threads**: fixed in 0.2.1 via `session/resume`; make sure T3 respawned the new script.
 
-This project reverse-engineers the private Connect-JSON API of the Grok Bot desktop app (`aiserver.v1.GrokBotService`) for personal interoperability only; the API may change at any time, with no compatibility promise. It contains no credentials; all runtime credentials come from the desktop app already logged in on your machine.
+## Protocol notes (T3 0.1.10)
+
+- `initialize`: T3 sends `protocolVersion:2`; a response without `info` falls back to v1. The bridge answers v1 + `agentInfo`.
+- Resume: T3 always takes the resume path for existing threads; the bridge advertises `sessionCapabilities.resume:{}` and implements `session/resume` (`session/load` → -32601). Bindings persist in `acp-session-bindings.json`.
+- Model picker: config options need `category:"model" && type:"select"` to be recognized.
+- Cancel: `session/cancel` is a notification; T3 waits ≤15 s then kills the process. SIGTERM/SIGINT close the voice WS and exit 0.
+- Cards are only sent when the client advertises elicitation/permission capabilities; otherwise text fallback.
 
 ## Changelog
 
-- 0.2.1: session/resume + persistent session bindings + category:model (fixes "Failed to open session" on existing T3 threads).
-- 0.2.0: alignment with the T3 plugin contract; voice moved behind GROKBOT_VOICE (off by default); elicitation capability gating.
+- **0.2.1** — `session/resume` + persistent session bindings + `category:"model"` (fixes "Failed to open session" on existing threads).
+- **0.2.0** — T3 plugin-contract alignment; voice behind `GROKBOT_VOICE` (off by default); capability-gated interactive cards.
 
 ## License
 
