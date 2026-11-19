@@ -1,5 +1,12 @@
 # grokbot-t3-bridge
 
+[![License: MIT](https://img.shields.io/github/license/CallMeHFK/grokbot-t3-bridge)](LICENSE)
+[![Release](https://img.shields.io/badge/version-0.2.1-blue)](#changelog)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)](#quick-start)
+[![Platform](https://img.shields.io/badge/platform-linux-FCC624?logo=linux&logoColor=black)](#quick-start)
+[![ACP](https://img.shields.io/badge/protocol-ACP%20v1-8A2BE2)](https://agentclientprotocol.com)
+[![T3](https://img.shields.io/badge/tested%20with-T3%200.1.10-orange)](#protocol-notes-t3-0110)
+
 English | [中文](README.zh-CN.md)
 
 **Chat with your Grok Bot agents inside [T3](https://t3.codes) — no desktop app required.**
@@ -7,6 +14,12 @@ English | [中文](README.zh-CN.md)
 A single-file, zero-dependency [ACP](https://agentclientprotocol.com) provider that bridges T3 to the Grok Bot cloud (`aiserver.v1.GrokBotService` on `api2.cursor.sh`). Your bot's replies stream into T3 threads like any other model, its interactive requests render as native T3 cards, and every turn is billed to the **Grok Bot weekly pool — never your Cursor plan**.
 
 > ⚠️ Built on the private, reverse-engineered Connect-JSON API of the Grok Bot desktop app. Personal interoperability only; the API may change at any time. No credentials are bundled — the bridge reuses the login already on your machine.
+
+## Screenshot
+
+A real conversation in a T3 thread — chat, math, and a live weather lookup rendered as native Markdown tables, all through the bridge:
+
+![GrokBot chatting inside a T3 thread](docs/screenshot-chat.png)
 
 ## Features
 

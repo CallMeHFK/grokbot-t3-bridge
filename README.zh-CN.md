@@ -1,5 +1,12 @@
 # grokbot-t3-bridge
 
+[![License: MIT](https://img.shields.io/github/license/CallMeHFK/grokbot-t3-bridge)](LICENSE)
+[![Release](https://img.shields.io/badge/version-0.2.1-blue)](#版本)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)](#快速开始)
+[![Platform](https://img.shields.io/badge/platform-linux-FCC624?logo=linux&logoColor=black)](#快速开始)
+[![ACP](https://img.shields.io/badge/protocol-ACP%20v1-8A2BE2)](https://agentclientprotocol.com)
+[![T3](https://img.shields.io/badge/tested%20with-T3%200.1.10-orange)](#协议要点对齐-t3-0110-实测)
+
 [English](README.md) | 中文
 
 **在 [T3](https://t3.codes) 里直接和你的 Grok Bot agent 对话——不用开桌面端。**
@@ -7,6 +14,12 @@
 单文件、零依赖的 [ACP](https://agentclientprotocol.com) provider，把 T3 桥接到 Grok Bot 云端（`api2.cursor.sh` 上的 `aiserver.v1.GrokBotService`）。bot 的回复像其他模型一样流式进入 T3 线程，交互请求渲染为 T3 原生卡片，每轮对话只消耗 **Grok Bot 周额度——绝不动你的 Cursor 计划**。
 
 > ⚠️ 基于逆向 Grok Bot 桌面端私有 Connect-JSON API 实现，仅供个人互操作；接口随时可能变化，无兼容承诺。不携带任何凭据——复用你本机已有的登录态。
+
+## 截图
+
+T3 线程里的真实对话——闲聊、算术、实时天气查询渲染为原生 Markdown 表格，全程走桥：
+
+![GrokBot 在 T3 线程中对话](docs/screenshot-chat.png)
 
 ## 特性
 
